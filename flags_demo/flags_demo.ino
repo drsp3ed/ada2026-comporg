@@ -6,12 +6,31 @@
 //
 // Open Serial Monitor at 9600 baud.
 
+// LED Output Pins
+const uint8_t LED_N = 5;  // Negative flag LED
+const uint8_t LED_Z = 4;  // Zero flag LED
+const uint8_t LED_V = 3;  // Overflow flag LED
+
 // SREG bit positions on AVR
 const uint8_t BIT_C = 0;  // carry (borrow after a subtraction on AVR)
 const uint8_t BIT_Z = 1;  // zero
 const uint8_t BIT_N = 2;  // negative (sign bit of result)
 const uint8_t BIT_V = 3;  // signed overflow
 const uint8_t BIT_S = 4;  // sign flag = N XOR V (AVR precomputes it)
+
+// Helper function to flush any left-over newline/carriage return characters
+// and wait for fresh user input before continuing.
+void waitForUserInput() {
+  // Clear out any trailing bytes in the serial buffer (like \r or \n)
+  while (Serial.available() > 0) {
+    Serial.read();
+  }
+  
+  // Wait for the user to send a new character/key press
+  while (Serial.available() == 0) {
+    // Wait for input
+  }
+}
 
 // Runs a - b on the CPU and returns SREG right after the compare.
 uint8_t cpuCompare(int8_t a, int8_t b) {
@@ -37,6 +56,11 @@ void runCase(int8_t a, int8_t b) {
   bool N = bitOf(sreg, BIT_N);
   bool V = bitOf(sreg, BIT_V);
   bool S = bitOf(sreg, BIT_S);
+
+  // Update physical LEDs on digital ports 5, 4, and 3
+  digitalWrite(LED_N, N ? HIGH : LOW);
+  digitalWrite(LED_Z, Z ? HIGH : LOW);
+  digitalWrite(LED_V, V ? HIGH : LOW);
 
   // The four conditions straight from the table (only Z, N, V used)
   bool LT = (N != V);
@@ -80,10 +104,23 @@ void runCase(int8_t a, int8_t b) {
 }
 
 void setup() {
+  // Initialize LED indicator pins as outputs
+  pinMode(LED_N, OUTPUT);
+  pinMode(LED_Z, OUTPUT);
+  pinMode(LED_V, OUTPUT);
+
+  // Turn off all LEDs at startup
+  digitalWrite(LED_N, LOW);
+  digitalWrite(LED_Z, LOW);
+  digitalWrite(LED_V, LOW);
+
   Serial.begin(9600);
   while (!Serial) { }
 
-  Serial.println(F("=== Signed compare flags on RISC ===\n"));
+  Serial.println(F("=== Signed compare flags on RISC ==="));
+  Serial.println(F("Press Send or Enter in Serial Monitor to start...\n"));
+  
+  waitForUserInput();
 
   for (int i = 0; i < 8; i++) {
 
@@ -114,9 +151,11 @@ void setup() {
         break; 
     }
 
-    
+    if (i < 7) {
+      Serial.println(F("[Press Enter for next case...]"));
+      waitForUserInput();
+    }
   }
-  
 
   Serial.println(F("Done."));
 }
